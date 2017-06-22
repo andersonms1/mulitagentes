@@ -16,22 +16,11 @@ public class Tyrion extends Agent {
 	@SuppressWarnings("serial")
 	protected void setup() {
 		System.out.println("Hello, got some wine?" + getAID().getName() + "is ready.");
-		
-		/*
-		 * Object[] args = getArguments(); if(ar)
-		 */
 
 		addBehaviour(new TickerBehaviour(this, 10000) {
 
-			// System.out.println("Procurando aliados.");
-			// DFAgentDescription template = new DFAgentDescription();
-			// ServiceDescription sd = new ServiceDescription();
-			// sd.setType("descobrindo-aliados");
-			// template.addServices(sd);
-
 			@Override
 			protected void onTick() {
-				// TODO Auto-generated method stub
 				DFAgentDescription template = new DFAgentDescription();
 				ServiceDescription sd = new ServiceDescription();
 				sd.setType("descobrindo-aliados");
@@ -49,7 +38,7 @@ public class Tyrion extends Agent {
 					fe.printStackTrace();
 				}
 
-				//myAgent.addBehaviour(new RequestAllies());
+				myAgent.addBehaviour(new RequestAllies());
 
 			}
 
@@ -58,18 +47,67 @@ public class Tyrion extends Agent {
 	}//end setup
 
 	private class RequestAllies extends Behaviour {
+
+
+
+		private int aux = 0;
+		private MessageTemplate mt;
+		private AID aliadoAgent;
+		private int repliesCnt = 0;
+
 		public void action(){
-			ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-			for (int aux = 0; aux < possibleAllyAgents.length; ++aux){
-				cfp.addReceiver(possibleAllyAgents[aux]);
+			switch(aux){
+				case 0:
+					ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
+					for (int aux = 0; aux < possibleAllyAgents.length; ++aux){
+						cfp.addReceiver(possibleAllyAgents[aux]);
+					}
+					cfp.setContent(aliado);
+					cfp.setConversationId("descobrindo-aliados");
+					cfp.setReplyWith("cfp"+System.currentTimeMillis());
+					myAgent.send(cfp);
+
+					mt = MessageTemplate.and(MessageTemplate.MatchConversationId("descobrindo-aliados")
+					,MessageTemplate.MatchInReplyTo(cfp.getReplyWith()));
+					aux = 1;
+					break;
+
+				case 1:
+					ACLMessage reply = myAgent.receive(mt);
+					if(reply != null){
+							if(reply.getContent() == "YES"){
+								//aliado resposta yes
+								//informar a rainha de seu novo aliado
+								ACLMessage order = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+								order.addReceiver(aliadoAgent);
+								order.setContent("YES");
+								order.setConversationId("descobrindo-aliados");
+								order.setReplyWith(""+System.currentTimeMillis());
+								myAgent.send(order);//informar rainha
+							}else{
+								ACLMessage order = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+								order.addReceiver(aliadoAgent);
+								order.setContent("NO");
+								order.setConversationId("descobrindo-aliados");
+								order.setReplyWith(""+System.currentTimeMillis());
+								myAgent.send(order);//informar rainha
+							}
+
+							repliesCnt++;
+
+					}else{
+						block();
+					}
+
 			}
-			cfp.setContent(aliado);
-			cfp.setConversationId("descobrindo-aliados");
-			cfp.setReplyWith("cfp"+System.currentTimeMillis());
-			myAgent.send(cfp);
+
+
 		}
 		public boolean done(){
-			return false;
+			if(repliesCnt > possibleAllyAgents.length)
+				return true;
+			else
+				return false;
 		}
 	}
 
